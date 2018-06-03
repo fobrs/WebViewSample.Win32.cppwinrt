@@ -106,8 +106,8 @@ void App::InitializeWin32WebView()
         {
             std::wstring uri = args.Uri().DisplayUri().c_str();
             std::transform(uri.begin(), uri.end(), uri.begin(), towlower);
-            if (uri.find(L".pdf") != std::wstring::npos)
-                winrt::Windows::System::ILauncherStatics().LaunchUriAsync(args.Uri());
+			if (uri.find(L".pdf") != std::wstring::npos)
+				Launcher::LaunchUriAsync(args.Uri());
             else
                 m_webViewControl.Navigate(args.Uri());
         });
