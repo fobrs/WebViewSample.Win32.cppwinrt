@@ -9,9 +9,6 @@ using namespace winrt::Windows::Web::Http;
 using namespace winrt::Windows::Web::Http::Headers;
 using namespace winrt::Windows::Web::UI;
 using namespace winrt::Windows::Web::UI::Interop;
-//using namespace ABI::Windows::UI::Xaml::Controls;
-using namespace Microsoft::WRL;
-using namespace Microsoft::WRL::Wrappers;
 using namespace winrt::Windows::System;
 
 
@@ -44,8 +41,7 @@ winrt::Windows::Web::UI::Interop::WebViewControlProcessOptions App::CreatePrivat
 std::wstring App::GetUserAgent()
 {
     std::wstring html = std::wstring(L"<html><head><script>function GetUserAgent(){return navigator.userAgent;}</script></head></html>");
-    Event operationCompleted(CreateEvent(nullptr, true, false, nullptr));
-    HANDLE h = operationCompleted.Get();
+	HANDLE h = CreateEvent(nullptr, true, false, nullptr);
     m_webViewControl.NavigateToString(hstring(html.c_str()));
     ::Sleep(100);
     IAsyncOperation<hstring> asyncscript(nullptr);
@@ -55,7 +51,7 @@ std::wstring App::GetUserAgent()
         m_user_agent = sender.GetResults().c_str();
         SetEvent(h);
     });
-    WaitForSingleObject(operationCompleted.Get(), INFINITE);
+    WaitForSingleObject(h, INFINITE);
     return m_user_agent;
 }
 
@@ -83,39 +79,47 @@ void App::AddNavigationStarting()
 
 void App::InitializeWin32WebView()
 {
-    if (!m_processOptions)
-        m_processOptions = winrt::Windows::Web::UI::Interop::WebViewControlProcessOptions();
-    if (!m_process)
-        m_process = winrt::Windows::Web::UI::Interop::WebViewControlProcess();
+	try {
+		if (!m_processOptions)
+			m_processOptions = winrt::Windows::Web::UI::Interop::WebViewControlProcessOptions();
+		if (!m_process)
+			m_process = winrt::Windows::Web::UI::Interop::WebViewControlProcess();
 
-    auto asyncwebview = m_process.CreateWebViewControlAsync((int64_t)m_hostWindow, HwndWindowRectToBoundsRect(m_hostWindow));
-    asyncwebview.Completed([this](IAsyncOperation<WebViewControl> const& sender, AsyncStatus args)
-    {
-        this->m_webViewControl = sender.GetResults();
+		auto asyncwebview = m_process.CreateWebViewControlAsync((int64_t)m_hostWindow, HwndWindowRectToBoundsRect(m_hostWindow));
+		asyncwebview.Completed([this](IAsyncOperation<WebViewControl> const& sender, AsyncStatus args)
+		{
+			this->m_webViewControl = sender.GetResults();
 
-        m_user_agent = GetUserAgent();
-        m_user_agent.append(L" WebViewSampleCppWinrt/1.00");
+			m_user_agent = GetUserAgent();
+			m_user_agent.append(L" WebViewSampleCppWinrt/1.00");
 
-        this->m_webViewControl.ContentLoading([this](IWebViewControl const& sender, winrt::Windows::Web::UI::IWebViewControlContentLoadingEventArgs args)
-        {
-            if (args.Uri())
-                SetWindowText(m_addressbarWindow, args.Uri().DisplayUri().c_str());
-        });
+			this->m_webViewControl.ContentLoading([this](IWebViewControl const& sender, winrt::Windows::Web::UI::IWebViewControlContentLoadingEventArgs args)
+			{
+				if (args.Uri())
+					SetWindowText(m_addressbarWindow, args.Uri().DisplayUri().c_str());
+			});
 
-        this->m_webViewControl.NewWindowRequested([this](IWebViewControl const& sender, winrt::Windows::Web::UI::IWebViewControlNewWindowRequestedEventArgs args)
-        {
-            std::wstring uri = args.Uri().DisplayUri().c_str();
-            std::transform(uri.begin(), uri.end(), uri.begin(), towlower);
-			if (uri.find(L".pdf") != std::wstring::npos)
-				Launcher::LaunchUriAsync(args.Uri());
-            else
-                m_webViewControl.Navigate(args.Uri());
-        });
+			this->m_webViewControl.NewWindowRequested([this](IWebViewControl const& sender, winrt::Windows::Web::UI::IWebViewControlNewWindowRequestedEventArgs args)
+			{
+				std::wstring uri = args.Uri().DisplayUri().c_str();
+				std::transform(uri.begin(), uri.end(), uri.begin(), towlower);
+				if (uri.find(L".pdf") != std::wstring::npos)
+					Launcher::LaunchUriAsync(args.Uri());
+				else
+					m_webViewControl.Navigate(args.Uri());
+			});
 
-        AddNavigationStarting();
+			AddNavigationStarting();
 
-        this->m_webViewControl.Navigate(Uri(hstring(L"https://www.bing.com/")));
-    });
+			this->m_webViewControl.Navigate(Uri(hstring(L"https://www.bing.com/")));
+		});
+	}
+	catch (hresult_error const& e)
+	{
+		WCHAR message[1024] = L"";
+		StringCchPrintfW(message, ARRAYSIZE(message), L"failed: %ls", e.message().c_str());
+		MessageBox(m_mainWindow, message, L"Error", MB_OK);
+	}
 }
 
 void App::SetScale(_In_ double scale)
@@ -177,6 +181,14 @@ void App::ToggleVisibility()
 
 void App::NavigateToUri(_In_ LPCWSTR uriAsString)
 {
-    winrt::Windows::Foundation::Uri uri(uriAsString);
-    m_webViewControl.Navigate(uri);
+	try {
+		winrt::Windows::Foundation::Uri uri(uriAsString);
+		m_webViewControl.Navigate(uri);
+	}
+	catch (hresult_error const& e)
+	{
+		WCHAR message[1024] = L"";
+		StringCchPrintfW(message, ARRAYSIZE(message), L"failed: %ls", e.message().c_str());
+		MessageBox(m_mainWindow, message, L"Error", MB_OK);
+	}
 }
